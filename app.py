@@ -1,4 +1,6 @@
 import streamlit as st
+import whisper
+import tempfile
 import random
 import time
 import re
@@ -7,27 +9,28 @@ from datetime import datetime
 # ---------------------------------------
 # PAGE CONFIG
 # ---------------------------------------
-st.set_page_config(page_title="TikTok Video Analyzer", page_icon="🎥", layout="wide")
+st.set_page_config(page_title="TikTok Analyzer Pro", page_icon="🎥", layout="wide")
 
-st.title("TikTok Video Virality & Content Analyzer")
-st.caption("Professional AI-style analysis dashboard for any TikTok video — metrics, hashtags, caption, description, and SEO insights.")
+st.title("TikTok Video Analyzer with AI Transcription")
+st.caption("Professional dashboard for analyzing TikTok videos — includes automatic transcription, analytics, hashtags, captions, and SEO insights.")
 
 # ---------------------------------------
 # HELPER FUNCTIONS
 # ---------------------------------------
 
-def extract_topic(filename):
-    """Extract keywords from video filename."""
-    name = filename.lower()
-    words = re.findall(r"[a-zA-Z]+", name)
-    keywords = [w for w in words if len(w) > 3]
-    topic = " ".join(keywords[:6]) if keywords else "general"
-    return topic
+def extract_keywords(text):
+    words = re.findall(r"[A-Za-z]+", text.lower())
+    stop = {"the", "and", "you", "for", "that", "this", "with", "are", "was", "from", "your", "what", "when"}
+    keywords = [w for w in words if len(w) > 3 and w not in stop]
+    freq = {}
+    for w in keywords:
+        freq[w] = freq.get(w, 0) + 1
+    top_words = sorted(freq, key=freq.get, reverse=True)[:6]
+    return " ".join(top_words) if top_words else "general"
 
-def classify_category(topic):
-    """Infer a general category from topic text."""
-    t = topic.lower()
-    if any(x in t for x in ["food", "recipe", "cook", "eat"]): return "food"
+def classify_category(text):
+    t = text.lower()
+    if any(x in t for x in ["food", "recipe", "eat", "kitchen"]): return "food"
     if any(x in t for x in ["health", "fitness", "wellness", "diet"]): return "health"
     if any(x in t for x in ["fashion", "style", "beauty", "makeup"]): return "fashion"
     if any(x in t for x in ["motivation", "inspire", "success", "mindset"]): return "motivation"
@@ -37,7 +40,6 @@ def classify_category(topic):
     return "general"
 
 def generate_metrics():
-    """Simulate realistic content performance metrics."""
     return {
         "Hook Strength": random.randint(60, 95),
         "Retention Potential": random.randint(55, 98),
@@ -50,26 +52,24 @@ def generate_metrics():
     }
 
 def generate_hashtags(topic, category):
-    """Generate topic-based hashtags."""
     words = [w.capitalize() for w in topic.split() if len(w) > 3]
-    base_tags = ["#FYP", "#Viral", "#TikTokTrend"]
+    base_tags = ["#FYP", "#Viral"]
     category_tags = {
-        "food": ["#FoodTok", "#CookingTips", "#Tasty", "#ChefMode", "#RecipeIdeas"],
-        "health": ["#HealthyLiving", "#Wellness", "#FitnessTips", "#Nutrition", "#MindBody"],
-        "fashion": ["#OOTD", "#StyleTok", "#TrendAlert", "#FashionTips", "#OutfitInspo"],
-        "motivation": ["#Motivation", "#DailyInspiration", "#Mindset", "#GrindMode", "#GoalGetter"],
-        "education": ["#LearnOnTikTok", "#StudyTok", "#DidYouKnow", "#QuickTips", "#Knowledge"],
-        "comedy": ["#FunnyTok", "#LOL", "#ComedyVideo", "#Relatable", "#Skits"],
-        "entertainment": ["#DanceTok", "#MusicTrend", "#BeatSync", "#Perform", "#ShowTime"],
-        "general": ["#ForYou", "#ExplorePage", "#Creators", "#TrendingNow", "#ContentTips"],
+        "food": ["#FoodTok", "#Cooking", "#Tasty", "#HomeChef", "#RecipeIdeas"],
+        "health": ["#HealthyLiving", "#Wellness", "#Nutrition", "#FitnessTips"],
+        "fashion": ["#OOTD", "#StyleTok", "#TrendAlert", "#FashionTips"],
+        "motivation": ["#Motivation", "#Mindset", "#DailyInspiration", "#GoalGetter"],
+        "education": ["#LearnOnTikTok", "#StudyTok", "#DidYouKnow", "#Knowledge"],
+        "comedy": ["#FunnyTok", "#ComedyVideo", "#LOL", "#Skits"],
+        "entertainment": ["#DanceTok", "#MusicTrend", "#Performance", "#ShowTime"],
+        "general": ["#ForYou", "#ExplorePage", "#Creators", "#TrendingNow"],
     }
     selected = category_tags.get(category, category_tags["general"])
-    custom_tags = [f"#{w}" for w in words[:4]]
-    hashtags = base_tags + selected[:5] + custom_tags
-    return list(dict.fromkeys(hashtags))[:10]
+    custom = [f"#{w}" for w in words[:4]]
+    hashtags = list(dict.fromkeys(base_tags + selected + custom))
+    return hashtags[:10]
 
 def generate_best_time(category):
-    """Suggest optimal posting times based on category."""
     times = {
         "food": ["11 AM – 2 PM", "Friday 6 PM"],
         "health": ["6 AM – 9 AM", "Sunday 8 PM"],
@@ -83,73 +83,73 @@ def generate_best_time(category):
     return times.get(category, times["general"])
 
 def generate_caption(topic, category):
-    """Create professional short-form caption."""
-    return f"{topic.title()} — a quick insight into the world of {category}. Keep watching for more valuable moments."
+    return f"{topic.title()} — short insights from the world of {category}."
 
 def generate_description(topic, category):
-    """Create longer descriptive paragraph for TikTok or YouTube use."""
     return (
-        f"This video dives into {topic}. Whether you're interested in {category} trends, insights, "
-        f"or inspiration, this short clip highlights key ideas that resonate with today's TikTok audience. "
-        "Watch till the end for the full experience and don’t forget to like, comment, and follow for more."
+        f"This video discusses {topic}. It covers essential aspects of {category} content "
+        f"that engage modern TikTok audiences. Stay tuned, like, and follow for more."
     )
 
 def generate_keywords(topic, category):
-    """Generate SEO keywords."""
-    base = topic.lower().split()
-    extras = [category, "TikTok", "viral", "trending", "short video", "algorithm"]
-    keywords = list(dict.fromkeys(base + extras))
-    return ", ".join(keywords[:12])
+    words = topic.lower().split()
+    extras = [category, "tiktok", "viral", "trending", "short video", "algorithm"]
+    return ", ".join(list(dict.fromkeys(words + extras))[:12])
 
 def generate_feedback(category):
-    """Strategic improvement recommendations."""
     base = [
-        "Keep the video length concise (under 20 seconds).",
-        "Maintain clear visual focus — avoid cluttered backgrounds.",
-        "Add clear subtitles for accessibility and engagement.",
-        "Start with a strong hook within the first 2 seconds.",
-        "Encourage comments or questions to drive interaction.",
-        "Use consistent posting patterns to build audience habit.",
+        "Start with a strong hook in the first 2 seconds.",
+        "Add subtitles for higher retention and accessibility.",
+        "Maintain steady lighting and avoid overexposure.",
+        "Post consistently (3–4 times weekly).",
+        "Encourage comments to drive engagement.",
     ]
-    if category == "comedy":
-        base.append("Ensure your punchline lands at the end for maximum replays.")
-    if category == "education":
-        base.append("Simplify explanations with on-screen text or diagrams.")
-    if category == "fashion":
-        base.append("Use good lighting and stable framing for outfit clarity.")
-    if category == "health":
-        base.append("Base your claims on credible facts to build trust.")
-    if category == "food":
-        base.append("Include close-up shots and show preparation steps clearly.")
+    if category == "comedy": base.append("Keep your pacing tight for better comedic timing.")
+    if category == "education": base.append("Summarize key takeaways at the end.")
+    if category == "fashion": base.append("Highlight textures and outfit details clearly.")
+    if category == "health": base.append("Reference credible data or studies if relevant.")
+    if category == "food": base.append("Include step visuals or final presentation shots.")
     random.shuffle(base)
     return base[:6]
 
 # ---------------------------------------
-# MAIN INTERFACE
+# MAIN APP
 # ---------------------------------------
 uploaded_file = st.file_uploader("Upload your TikTok video", type=["mp4", "mov"])
 
 if uploaded_file:
-    topic = extract_topic(uploaded_file.name)
-    category = classify_category(topic)
     st.video(uploaded_file)
-    st.info(f"Detected topic: {topic.title()}  |  Category: {category.title()}")
 
-    with st.spinner("Analyzing video content and generating insights..."):
-        time.sleep(3)
-        metrics = generate_metrics()
-        hashtags = generate_hashtags(topic, category)
-        post_times = generate_best_time(category)
-        caption = generate_caption(topic, category)
-        description = generate_description(topic, category)
-        keywords = generate_keywords(topic, category)
-        feedback = generate_feedback(category)
+    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+        temp_file.write(uploaded_file.read())
+        temp_path = temp_file.name
+
+    with st.spinner("Transcribing audio... please wait."):
+        model = whisper.load_model("base")
+        result = model.transcribe(temp_path)
+        transcript = result["text"]
+
+    topic = extract_keywords(transcript)
+    category = classify_category(transcript)
+    metrics = generate_metrics()
+    hashtags = generate_hashtags(topic, category)
+    post_times = generate_best_time(category)
+    caption = generate_caption(topic, category)
+    description = generate_description(topic, category)
+    keywords = generate_keywords(topic, category)
+    feedback = generate_feedback(category)
 
     # --- Results Dashboard ---
     st.header("Analysis Results")
     cols = st.columns(4)
     for i, (k, v) in enumerate(metrics.items()):
         cols[i % 4].metric(k, f"{v}/100")
+
+    st.subheader("Detected Topic & Category")
+    st.write(f"Topic: {topic.title()}  |  Category: {category.title()}")
+
+    st.subheader("Transcript")
+    st.text_area("Transcribed Speech", transcript, height=200)
 
     st.subheader("Suggested Hashtags")
     st.write(" ".join(hashtags))
@@ -177,6 +177,9 @@ Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M")}
 Topic: {topic.title()}
 Category: {category.title()}
 
+--- Transcript ---
+{transcript}
+
 --- Metrics ---
 {chr(10).join([f"- {k}: {v}/100" for k, v in metrics.items()])}
 
@@ -198,7 +201,7 @@ Category: {category.title()}
 --- Recommendations ---
 {chr(10).join(feedback)}
 """
-    st.download_button("Download Full Report", report, file_name="tiktok_analysis_report.txt")
+    st.download_button("Download Full Report", report, file_name="tiktok_transcription_analysis.txt")
 
 else:
-    st.info("Upload a TikTok video file to begin the analysis.")
+    st.info("Upload a TikTok video file to begin transcription and analysis.")
