@@ -4,164 +4,201 @@ import time
 import re
 from datetime import datetime
 
-# --------------------------------
-# CONFIG
-# --------------------------------
-st.set_page_config(page_title="TikTok Smart Virality Analyzer", page_icon="🎥", layout="wide")
+# ---------------------------------------
+# PAGE CONFIG
+# ---------------------------------------
+st.set_page_config(page_title="TikTok Video Analyzer", page_icon="🎥", layout="wide")
 
-st.title("🎬 TikTok Video Virality Analyzer (Dynamic Edition)")
-st.caption("AI-powered TikTok analyzer that dynamically suggests hashtags, sounds, and post times based on your video content.")
+st.title("TikTok Video Virality & Content Analyzer")
+st.caption("Professional AI-style analysis dashboard for any TikTok video — metrics, hashtags, caption, description, and SEO insights.")
 
-# --------------------------------
+# ---------------------------------------
 # HELPER FUNCTIONS
-# --------------------------------
+# ---------------------------------------
 
-# Extract topic keywords from filename
 def extract_topic(filename):
+    """Extract keywords from video filename."""
     name = filename.lower()
     words = re.findall(r"[a-zA-Z]+", name)
     keywords = [w for w in words if len(w) > 3]
     topic = " ".join(keywords[:6]) if keywords else "general"
     return topic
 
-# Generate hashtags dynamically based on topic
-def dynamic_hashtags(topic):
-    base = ["#FYP", "#TikTokTrend"]
-    words = topic.split()
-    smart_tags = [f"#{w.capitalize()}" for w in words if len(w) > 3]
-    extras = random.sample(["#ViralVideo", "#TrendingNow", "#ExplorePage", "#Creators", "#ContentTips"], 3)
-    hashtags = list(dict.fromkeys(base + smart_tags + extras))  # remove duplicates
-    return hashtags[:10]
+def classify_category(topic):
+    """Infer a general category from topic text."""
+    t = topic.lower()
+    if any(x in t for x in ["food", "recipe", "cook", "eat"]): return "food"
+    if any(x in t for x in ["health", "fitness", "wellness", "diet"]): return "health"
+    if any(x in t for x in ["fashion", "style", "beauty", "makeup"]): return "fashion"
+    if any(x in t for x in ["motivation", "inspire", "success", "mindset"]): return "motivation"
+    if any(x in t for x in ["education", "learn", "study", "tutorial", "facts"]): return "education"
+    if any(x in t for x in ["comedy", "funny", "humor", "skit"]): return "comedy"
+    if any(x in t for x in ["music", "dance", "song", "beat"]): return "entertainment"
+    return "general"
 
-# Generate sound ideas dynamically
-def dynamic_sounds(topic):
-    core = topic.split()
-    base_sound = random.choice(["Remix", "Groove", "Beat", "Vibes", "Track", "Flow"])
-    descriptor = core[0].capitalize() if core else "Viral"
-    return [f"{descriptor} {base_sound}", f"{descriptor} Theme", f"{descriptor} Loop"]
-
-# Suggest best posting time dynamically
-def best_posting_time(topic):
-    topic = topic.lower()
-    if any(x in topic for x in ["food", "recipe", "health", "fitness", "morning"]):
-        return ["Morning (7 AM – 10 AM)", "Afternoon (12 PM – 2 PM)"]
-    elif any(x in topic for x in ["comedy", "funny", "dance", "music"]):
-        return ["Evening (7 PM – 10 PM)", "Weekend Nights"]
-    elif any(x in topic for x in ["education", "facts", "tutorial", "learn"]):
-        return ["Morning (9 AM – 11 AM)", "Weekdays 3 PM"]
-    elif any(x in topic for x in ["fashion", "beauty", "makeup", "style"]):
-        return ["Afternoon (3 PM – 6 PM)", "Saturday 10 AM"]
-    else:
-        return ["Evening (6 PM – 9 PM)", "Friday 8 PM"]
-
-# Generate analytics
 def generate_metrics():
+    """Simulate realistic content performance metrics."""
     return {
         "Hook Strength": random.randint(60, 95),
-        "Retention Potential": random.randint(55, 99),
+        "Retention Potential": random.randint(55, 98),
         "Replay Factor": random.randint(40, 95),
         "Engagement Probability": random.randint(50, 100),
         "Visual Clarity": random.randint(60, 100),
-        "Audio Quality": random.randint(50, 100),
+        "Audio Quality": random.randint(55, 100),
         "Trend Relevance": random.randint(40, 95),
         "Overall Virality Score": random.randint(65, 100),
     }
 
-# Generate feedback
-def generate_feedback(topic):
-    general_tips = [
-        "Add captions — 80% of TikTok users watch with sound off.",
-        "Hook your viewers in the first 2 seconds.",
-        "Use trending sounds that fit your content tone.",
-        "Keep total video length under 20 seconds for retention.",
-        "Add a call-to-action like 'Follow for more'.",
-        "Engage with comments in the first 30 minutes.",
+def generate_hashtags(topic, category):
+    """Generate topic-based hashtags."""
+    words = [w.capitalize() for w in topic.split() if len(w) > 3]
+    base_tags = ["#FYP", "#Viral", "#TikTokTrend"]
+    category_tags = {
+        "food": ["#FoodTok", "#CookingTips", "#Tasty", "#ChefMode", "#RecipeIdeas"],
+        "health": ["#HealthyLiving", "#Wellness", "#FitnessTips", "#Nutrition", "#MindBody"],
+        "fashion": ["#OOTD", "#StyleTok", "#TrendAlert", "#FashionTips", "#OutfitInspo"],
+        "motivation": ["#Motivation", "#DailyInspiration", "#Mindset", "#GrindMode", "#GoalGetter"],
+        "education": ["#LearnOnTikTok", "#StudyTok", "#DidYouKnow", "#QuickTips", "#Knowledge"],
+        "comedy": ["#FunnyTok", "#LOL", "#ComedyVideo", "#Relatable", "#Skits"],
+        "entertainment": ["#DanceTok", "#MusicTrend", "#BeatSync", "#Perform", "#ShowTime"],
+        "general": ["#ForYou", "#ExplorePage", "#Creators", "#TrendingNow", "#ContentTips"],
+    }
+    selected = category_tags.get(category, category_tags["general"])
+    custom_tags = [f"#{w}" for w in words[:4]]
+    hashtags = base_tags + selected[:5] + custom_tags
+    return list(dict.fromkeys(hashtags))[:10]
+
+def generate_best_time(category):
+    """Suggest optimal posting times based on category."""
+    times = {
+        "food": ["11 AM – 2 PM", "Friday 6 PM"],
+        "health": ["6 AM – 9 AM", "Sunday 8 PM"],
+        "fashion": ["3 PM – 6 PM", "Saturday 10 AM"],
+        "motivation": ["Morning 7–9 AM", "Sunday 7 PM"],
+        "education": ["Weekdays 9–11 AM", "Wednesday 3 PM"],
+        "comedy": ["Evening 8–11 PM", "Weekend nights"],
+        "entertainment": ["Evening 6–10 PM", "Saturday 8 PM"],
+        "general": ["6 PM – 9 PM", "Friday 8 PM"],
+    }
+    return times.get(category, times["general"])
+
+def generate_caption(topic, category):
+    """Create professional short-form caption."""
+    return f"{topic.title()} — a quick insight into the world of {category}. Keep watching for more valuable moments."
+
+def generate_description(topic, category):
+    """Create longer descriptive paragraph for TikTok or YouTube use."""
+    return (
+        f"This video dives into {topic}. Whether you're interested in {category} trends, insights, "
+        f"or inspiration, this short clip highlights key ideas that resonate with today's TikTok audience. "
+        "Watch till the end for the full experience and don’t forget to like, comment, and follow for more."
+    )
+
+def generate_keywords(topic, category):
+    """Generate SEO keywords."""
+    base = topic.lower().split()
+    extras = [category, "TikTok", "viral", "trending", "short video", "algorithm"]
+    keywords = list(dict.fromkeys(base + extras))
+    return ", ".join(keywords[:12])
+
+def generate_feedback(category):
+    """Strategic improvement recommendations."""
+    base = [
+        "Keep the video length concise (under 20 seconds).",
+        "Maintain clear visual focus — avoid cluttered backgrounds.",
+        "Add clear subtitles for accessibility and engagement.",
+        "Start with a strong hook within the first 2 seconds.",
+        "Encourage comments or questions to drive interaction.",
+        "Use consistent posting patterns to build audience habit.",
     ]
-    if "food" in topic:
-        general_tips.append("Show ingredients clearly and add close-up shots of texture.")
-    if "health" in topic:
-        general_tips.append("Use credible health facts or show real results to build trust.")
-    if "fashion" in topic:
-        general_tips.append("Add outfit transitions or mirror shots to catch attention.")
-    if "comedy" in topic:
-        general_tips.append("Add punchline text overlay at the last 2 seconds.")
-    random.shuffle(general_tips)
-    return general_tips[:6]
+    if category == "comedy":
+        base.append("Ensure your punchline lands at the end for maximum replays.")
+    if category == "education":
+        base.append("Simplify explanations with on-screen text or diagrams.")
+    if category == "fashion":
+        base.append("Use good lighting and stable framing for outfit clarity.")
+    if category == "health":
+        base.append("Base your claims on credible facts to build trust.")
+    if category == "food":
+        base.append("Include close-up shots and show preparation steps clearly.")
+    random.shuffle(base)
+    return base[:6]
 
-# --------------------------------
-# APP INTERFACE
-# --------------------------------
-tab1, tab2, tab3 = st.tabs(["📈 Video Analysis", "🔥 Trend Finder", "🧾 Download Report"])
+# ---------------------------------------
+# MAIN INTERFACE
+# ---------------------------------------
+uploaded_file = st.file_uploader("Upload your TikTok video", type=["mp4", "mov"])
 
-with tab1:
-    uploaded_file = st.file_uploader("Upload your TikTok video", type=["mp4", "mov"])
-    if uploaded_file:
-        topic = extract_topic(uploaded_file.name)
-        st.video(uploaded_file)
-        st.info(f"Detected Topic: **{topic.title()}**")
+if uploaded_file:
+    topic = extract_topic(uploaded_file.name)
+    category = classify_category(topic)
+    st.video(uploaded_file)
+    st.info(f"Detected topic: {topic.title()}  |  Category: {category.title()}")
 
-        with st.spinner("Analyzing your video content..."):
-            time.sleep(3)
-            metrics = generate_metrics()
-            feedback = generate_feedback(topic)
+    with st.spinner("Analyzing video content and generating insights..."):
+        time.sleep(3)
+        metrics = generate_metrics()
+        hashtags = generate_hashtags(topic, category)
+        post_times = generate_best_time(category)
+        caption = generate_caption(topic, category)
+        description = generate_description(topic, category)
+        keywords = generate_keywords(topic, category)
+        feedback = generate_feedback(category)
 
-        st.success("✅ Analysis Complete")
-        cols = st.columns(4)
-        for i, (k, v) in enumerate(metrics.items()):
-            cols[i % 4].metric(k, f"{v}/100")
+    # --- Results Dashboard ---
+    st.header("Analysis Results")
+    cols = st.columns(4)
+    for i, (k, v) in enumerate(metrics.items()):
+        cols[i % 4].metric(k, f"{v}/100")
 
-        st.session_state["topic"] = topic
-        st.session_state["metrics"] = metrics
-        st.session_state["feedback"] = feedback
-
-with tab2:
-    st.header("🔥 Smart Trend Finder (AI-based Suggestions)")
-    topic = st.session_state.get("topic", "general")
-    hashtags = dynamic_hashtags(topic)
-    sounds = dynamic_sounds(topic)
-    times = best_posting_time(topic)
-
-    st.subheader("📌 Trending Hashtags")
+    st.subheader("Suggested Hashtags")
     st.write(" ".join(hashtags))
 
-    st.subheader("🎵 Recommended Sounds")
-    for s in sounds:
-        st.write("🎶", s)
+    st.subheader("Optimal Posting Times")
+    st.write(", ".join(post_times))
 
-    st.subheader("🕒 Optimal Post Times")
-    for t in times:
-        st.write("🕓", t)
+    st.subheader("Recommended Caption")
+    st.write(caption)
 
-with tab3:
-    if "metrics" in st.session_state:
-        topic = st.session_state["topic"]
-        metrics = st.session_state["metrics"]
-        feedback = st.session_state["feedback"]
-        hashtags = dynamic_hashtags(topic)
-        sounds = dynamic_sounds(topic)
-        times = best_posting_time(topic)
+    st.subheader("Recommended Description")
+    st.write(description)
 
-        report = f"""
-        TikTok Smart Analyzer Report
-        Topic: {topic.title()}
-        Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M")}
+    st.subheader("SEO Keywords")
+    st.write(keywords)
 
-        Metrics:
-        {chr(10).join([f"- {k}: {v}/100" for k, v in metrics.items()])}
+    st.subheader("Professional Recommendations")
+    for tip in feedback:
+        st.write("-", tip)
 
-        Trending Hashtags:
-        {', '.join(hashtags)}
+    # --- Downloadable Report ---
+    report = f"""
+TikTok Video Analysis Report
+Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M")}
+Topic: {topic.title()}
+Category: {category.title()}
 
-        Suggested Sounds:
-        {', '.join(sounds)}
+--- Metrics ---
+{chr(10).join([f"- {k}: {v}/100" for k, v in metrics.items()])}
 
-        Best Posting Times:
-        {', '.join(times)}
+--- Suggested Hashtags ---
+{", ".join(hashtags)}
 
-        Recommendations:
-        {chr(10).join(feedback)}
-        """
+--- Optimal Posting Times ---
+{", ".join(post_times)}
 
-        st.download_button("⬇️ Download Full Report", report, file_name="tiktok_smart_report.txt")
-    else:
-        st.info("Please upload a video and analyze it first.")
+--- Caption ---
+{caption}
+
+--- Description ---
+{description}
+
+--- SEO Keywords ---
+{keywords}
+
+--- Recommendations ---
+{chr(10).join(feedback)}
+"""
+    st.download_button("Download Full Report", report, file_name="tiktok_analysis_report.txt")
+
+else:
+    st.info("Upload a TikTok video file to begin the analysis.")
